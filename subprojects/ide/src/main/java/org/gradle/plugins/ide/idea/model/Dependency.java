@@ -22,4 +22,5 @@ import groovy.util.Node;
  */
 public interface Dependency {
     void addToNode(Node parentNode);
+    String getScope();
 }

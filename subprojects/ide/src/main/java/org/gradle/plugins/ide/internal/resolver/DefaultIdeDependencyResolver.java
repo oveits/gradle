@@ -54,6 +54,7 @@ public class DefaultIdeDependencyResolver implements IdeDependencyResolver {
      * @return IDE project dependencies
      */
     public List<IdeProjectDependency> getIdeProjectDependencies(Configuration configuration, Project project) {
+        configuration = failsafeConfiguration(configuration);
         ResolutionResult result = getIncomingResolutionResult(configuration);
         final Set<ResolvedComponentResult> projectComponents = CollectionUtils.filter(result.getAllComponents(), new Spec<ResolvedComponentResult>() {
             @Override
@@ -80,6 +81,12 @@ public class DefaultIdeDependencyResolver implements IdeDependencyResolver {
         return ideProjectDependencies;
     }
 
+    private Configuration failsafeConfiguration(Configuration configuration) {
+        Configuration copy = configuration.copyRecursive();
+        copy.setCanBeResolved(true);
+        return copy;
+    }
+
     /**
      * Gets unresolved IDE repository file dependencies.
      *
@@ -87,6 +94,7 @@ public class DefaultIdeDependencyResolver implements IdeDependencyResolver {
      * @return Unresolved IDE repositoru file dependencies
      */
     public List<UnresolvedIdeRepoFileDependency> getUnresolvedIdeRepoFileDependencies(Configuration configuration) {
+        configuration = failsafeConfiguration(configuration);
         ResolutionResult result = getIncomingResolutionResult(configuration);
         List<UnresolvedDependencyResult> unresolvedDependencies = findAllUnresolvedDependencyResults(result.getRoot().getDependencies());
         List<UnresolvedIdeRepoFileDependency> unresolvedIdeRepoFileDependencies = new ArrayList<UnresolvedIdeRepoFileDependency>();
@@ -120,6 +128,7 @@ public class DefaultIdeDependencyResolver implements IdeDependencyResolver {
      * @return IDE repository file dependencies
      */
     public List<IdeExtendedRepoFileDependency> getIdeRepoFileDependencies(Configuration configuration) {
+        configuration = failsafeConfiguration(configuration);
         ResolutionResult result = getIncomingResolutionResult(configuration);
         final Set<ResolvedComponentResult> resolvedRepoFileComponents = CollectionUtils.filter(result.getAllComponents(), new Spec<ResolvedComponentResult>() {
             @Override

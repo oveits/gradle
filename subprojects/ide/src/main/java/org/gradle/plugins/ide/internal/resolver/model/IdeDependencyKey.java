@@ -96,7 +96,7 @@ public abstract class IdeDependencyKey<T extends IdeDependency, R> {
         }
 
         public String toString() {
-            return "LocalFileDependencyKey{" + ideDependency.getFile() + "}";
+            return "LocalFile{" + ideDependency.getFile().getName() + "}";
         }
     }
 
@@ -117,7 +117,7 @@ public abstract class IdeDependencyKey<T extends IdeDependency, R> {
 
         @Override
         public String toString() {
-            return "ProjectDependencyKey{" + ideDependency.getProjectId() + "}";
+            return "Project{" + ideDependency.getProjectId().getProjectPath() + "}";
         }
     }
 
@@ -144,7 +144,7 @@ public abstract class IdeDependencyKey<T extends IdeDependency, R> {
 
         @Override
         public String toString() {
-            return "RepoFileDependencyKey{" + ideDependency.getId() + "}";
+            return "RepoFile{" + ideDependency.getId() + "}";
         }
     }
 }

@@ -16,28 +16,36 @@
 
 package org.gradle.plugins.ide.idea.model.internal;
 
-import com.google.common.collect.Sets;
+import com.google.common.collect.ImmutableSet;
 
-import java.util.Collections;
 import java.util.Set;
 
 /**
  * An enumeration of possible mappings used to assign Idea classpath scope to Gradle dependency.
  */
 public enum GeneratedIdeaScope {
-    PROVIDED_TEST("PROVIDED", "TEST"),
     PROVIDED("PROVIDED"),
     COMPILE("COMPILE"),
+    TEST("TEST"),
+    RUNTIME("RUNTIME"),
+
+    // The following are now unused, but left as is because of backwards compatibility.
+    // In case you wonder why we care about backwards compatibility in an internal type,
+    // The reason is that those leaked into the public API through String constants, in
+    // mapping rules DSL.
+
+    PROVIDED_TEST("PROVIDED", "TEST"),
     RUNTIME_COMPILE_CLASSPATH("PROVIDED", "RUNTIME"),
     RUNTIME_TEST_COMPILE_CLASSPATH("PROVIDED", "TEST"),
     RUNTIME_TEST("RUNTIME", "TEST"),
-    RUNTIME("RUNTIME"),
-    TEST("TEST"),
     COMPILE_CLASSPATH("PROVIDED");
 
     public final Set<String> scopes;
+    public final boolean composite;
 
-    GeneratedIdeaScope(String ... scopes) {
-        this.scopes = Collections.unmodifiableSet(Sets.newHashSet(scopes));
+    GeneratedIdeaScope(String... scopes) {
+        this.composite = scopes.length>1;
+        this.scopes = ImmutableSet.copyOf(scopes);
     }
+
 }

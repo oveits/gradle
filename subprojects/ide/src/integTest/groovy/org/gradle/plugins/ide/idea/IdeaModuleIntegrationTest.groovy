@@ -522,10 +522,10 @@ dependencies {
 
 idea {
   module {
-    scopes.RUNTIME_TEST = [:]
-    scopes.RUNTIME_TEST.plus = [configurations.myCustom]
-    // scopes.TEST.plus += configurations.myCustom
-    // scopes.RUNTIME.plus += configurations.myCustom
+    //scopes.RUNTIME_TEST = [:]
+    //scopes.RUNTIME_TEST.plus = [configurations.myCustom]
+     scopes.TEST.plus += [configurations.myCustom]
+     scopes.RUNTIME.plus += [configurations.myCustom]
   }
 }
 """
@@ -697,9 +697,8 @@ dependencies {
 
         // then
         def dependencies = parseIml("root.iml").dependencies
-        assert dependencies.libraries.size() == 2
-        dependencies.assertHasLibrary('COMPILE', 'bothCompileAndCompileOnly-1.0.jar')
         dependencies.assertHasLibrary('PROVIDED', 'bothCompileAndCompileOnly-2.0.jar')
+        assert dependencies.libraries.size() == 1
     }
 
     @Test

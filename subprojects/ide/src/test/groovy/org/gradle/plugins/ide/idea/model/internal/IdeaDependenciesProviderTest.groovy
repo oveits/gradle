@@ -66,9 +66,29 @@ public class IdeaDependenciesProviderTest extends AbstractProjectBuilderSpec {
         def result = dependenciesProvider.provide(module)
 
         then:
-        result.size() == 2
-        assertSingleLibrary(result, 'COMPILE', 'guava.jar')
-        assertSingleLibrary(result, 'TEST', 'mockito.jar')
+        expectMapping(result, [
+            COMPILE: ['guava.jar'],
+            TEST: ['mockito.jar'],
+        ])
+    }
+
+    def "api dependencies are mapped to compile scope"() {
+        applyPluginToProjects()
+        project.apply(plugin: 'java-library')
+
+        def module = project.ideaModule.module // Mock(IdeaModule)
+        module.offline = true
+
+        when:
+        project.dependencies.add('api', project.files('lib/guava.jar'))
+        project.dependencies.add('testCompile', project.files('lib/mockito.jar'))
+        def result = dependenciesProvider.provide(module)
+
+        then:
+        expectMapping(result, [
+            COMPILE: ['guava.jar'],
+            TEST: ['mockito.jar'],
+        ])
     }
 
     def "dependency is excluded if added to minus configuration"() {
@@ -146,6 +166,64 @@ public class IdeaDependenciesProviderTest extends AbstractProjectBuilderSpec {
         result.findAll { it.scope == 'COMPILE' }.size() == 1
     }
 
+    def "api dependency on child project is mapped to compile scope"() {
+        applyPluginToProjects()
+        project.apply(plugin: 'java-library')
+        childProject.apply(plugin: 'java')
+
+        def module = project.ideaModule.module // Mock(IdeaModule)
+        module.offline = true
+
+        when:
+        project.dependencies.add('api', childProject)
+        def result = dependenciesProvider.provide(module)
+
+        then:
+        result.size() == 1
+        result.findAll { it.scope == 'COMPILE' }.size() == 1
+    }
+
+    def "implementation dependency of child project is not mapped to compile scope"() {
+        applyPluginToProjects()
+        project.apply(plugin: 'java')
+        childProject.apply(plugin: 'java-library')
+        def child2Project = TestUtil.createChildProject(project, "child2", new File("."))
+        child2Project.apply(plugin: 'java-library')
+
+        def module = project.ideaModule.module // Mock(IdeaModule)
+        module.offline = true
+
+        when:
+        project.dependencies.add('compile', childProject)
+        childProject.dependencies.add('implementation', child2Project)
+        def result = dependenciesProvider.provide(module)
+
+        then:
+        result.size() == 2
+        result.findAll { it.scope == 'COMPILE' }.size() == 1
+        result.findAll { it.scope == 'RUNTIME' }.size() == 1
+    }
+
+    def "api dependency of child project is mapped to compile scope"() {
+        applyPluginToProjects()
+        project.apply(plugin: 'java')
+        childProject.apply(plugin: 'java-library')
+        def child2Project = TestUtil.createChildProject(project, "child2", new File("."))
+        child2Project.apply(plugin: 'java-library')
+
+        def module = project.ideaModule.module // Mock(IdeaModule)
+        module.offline = true
+
+        when:
+        project.dependencies.add('compile', childProject)
+        childProject.dependencies.add('api', child2Project)
+        def result = dependenciesProvider.provide(module)
+
+        then:
+        result.size() == 2
+        result.findAll { it.scope == 'COMPILE' }.size() == 2
+    }
+
     def "test and runtime scope for the same dependency"() {
         applyPluginToProjects()
         project.apply(plugin: 'java')
@@ -160,10 +238,29 @@ public class IdeaDependenciesProviderTest extends AbstractProjectBuilderSpec {
         def result = dependenciesProvider.provide(module)
 
         then:
-        result.size() == 3
-        assertSingleLibrary(result, 'COMPILE', 'foo-api.jar')
-        assertSingleLibrary(result, 'TEST', 'foo-impl.jar')
-        assertSingleLibrary(result, 'RUNTIME', 'foo-impl.jar')
+        expectMapping(result, [
+            COMPILE: ['foo-api.jar'],
+            TEST: ['foo-impl.jar'],
+            RUNTIME: ['foo-impl.jar'],
+        ])
+    }
+
+    def "dependency seen in both compile and compile only should map to COMPILE"() {
+        applyPluginToProjects()
+        project.apply(plugin: 'java')
+
+        def module = project.ideaModule.module // Mock(IdeaModule)
+        module.offline = true
+
+        when:
+        project.dependencies.add('compile', project.files('lib/guava.jar'))
+        project.dependencies.add('compileOnly', project.files('lib/guava.jar'))
+        def result = dependenciesProvider.provide(module)
+
+        then:
+        expectMapping(result, [
+            COMPILE: ['guava.jar']
+        ])
     }
 
     def "compile only dependencies"() {
@@ -180,10 +277,11 @@ public class IdeaDependenciesProviderTest extends AbstractProjectBuilderSpec {
         def result = dependenciesProvider.provide(module)
 
         then:
-        result.size() == 3
-        assertSingleLibrary(result, 'COMPILE', 'guava.jar')
-        assertSingleLibrary(result, 'PROVIDED', 'foo-api.jar')
-        assertSingleLibrary(result, 'TEST', 'foo-impl.jar')
+        expectMapping(result, [
+            COMPILE: ['guava.jar'],
+            PROVIDED: ['foo-api.jar'],
+            TEST: ['foo-impl.jar']
+        ])
     }
 
     def "compile only dependency conflicts with runtime dependencies"() {
@@ -201,11 +299,11 @@ public class IdeaDependenciesProviderTest extends AbstractProjectBuilderSpec {
         def result = dependenciesProvider.provide(module)
 
         then:
-        result.size() == 4
-        assertSingleLibrary(result, 'PROVIDED', 'foo-runtime.jar')
-        assertSingleLibrary(result, 'PROVIDED', 'foo-testRuntime.jar')
-        assertSingleLibrary(result, 'RUNTIME', 'foo-runtime.jar')
-        assertSingleLibrary(result, 'TEST', 'foo-testRuntime.jar')
+        expectMapping(result, [
+            PROVIDED: ['foo-runtime.jar', 'foo-testRuntime.jar'],
+            RUNTIME: ['foo-runtime.jar'],
+            TEST: ['foo-testRuntime.jar']
+        ])
     }
 
     def "ignore unknown configurations"() {
@@ -237,10 +335,24 @@ public class IdeaDependenciesProviderTest extends AbstractProjectBuilderSpec {
         childProject.apply plugin: IdeaPlugin
     }
 
-    private void assertSingleLibrary(Set<Dependency> dependencies, String scope, String artifactName) {
-        def size = dependencies.findAll { SingleEntryModuleLibrary module ->
-            module.scope == scope && module.libraryFile.path.endsWith(artifactName)
-        }.size()
-        assert size == 1 : "Expected single entry for artifact $artifactName in scope $scope but found $size"
+    private static void expectMapping(Set<Dependency> dependencies, Map<String, List<String>> scopeToArtifacts) {
+        def errors = [:]
+        Set scopes = dependencies.collect { it.scope }
+        scopeToArtifacts.each { scope, artifacts ->
+            Set<String> foundDependencies = dependencies.findAll { SingleEntryModuleLibrary module ->
+                module.scope == scope
+            }.collect { SingleEntryModuleLibrary module ->
+                module.libraryFile.name
+            }
+            def expected = artifacts as Set
+            if (!(foundDependencies == expected)) {
+                errors.put(scope, "Expected $expected and found $foundDependencies")
+            }
+        }
+        if (errors) {
+            def detail = errors.collect { scope, err -> "   - Scope $scope: $err" }.join("\n")
+            throw new AssertionError("Incorrect mapping\n$detail")
+        }
+        assert scopes == scopeToArtifacts.keySet()
     }
 }
